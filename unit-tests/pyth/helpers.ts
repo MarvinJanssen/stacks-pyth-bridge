@@ -596,7 +596,7 @@ export namespace pyth {
   ): PriceUpdate {
     return {
       priceIdentifier: priceIdentifier,
-      price: opts?.price || 100n,
+      price: opts?.price !== undefined ? opts.price : 100n,
       conf: opts?.conf || 10n,
       emaPrice: opts?.emaPrice || 95n,
       emaConf: opts?.emaConf || 9n,

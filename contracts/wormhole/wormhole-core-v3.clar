@@ -133,29 +133,30 @@
         (version (unwrap! (read-uint-8? vaa-bytes u0) ERR_VAA_PARSING_VERSION)) ;; offset +1
         (guardian-set-id (unwrap! (read-uint-32? vaa-bytes u1) ERR_VAA_PARSING_GUARDIAN_SET)) ;; offset +4
         (signatures-len (unwrap! (read-uint-8? vaa-bytes u5) ERR_VAA_PARSING_SIGNATURES_LEN)) ;; offset +1
-        (signatures (unwrap-panic (slice? (list
-          (if (<= u1 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u6 u72)) u0) EMPTY_SIG)
-          (if (<= u2 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u72 u138)) u0) EMPTY_SIG)
-          (if (<= u3 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u138 u204)) u0) EMPTY_SIG)
-          (if (<= u4 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u204 u270)) u0) EMPTY_SIG)
-          (if (<= u5 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u270 u336)) u0) EMPTY_SIG)
-          (if (<= u6 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u336 u402)) u0) EMPTY_SIG)
-          (if (<= u7 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u402 u468)) u0) EMPTY_SIG)
-          (if (<= u8 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u468 u534)) u0) EMPTY_SIG)
-          (if (<= u9 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u534 u600)) u0) EMPTY_SIG)
-          (if (<= u10 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u600 u666)) u0) EMPTY_SIG)
-          (if (<= u11 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u666 u732)) u0) EMPTY_SIG)
-          (if (<= u12 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u732 u798)) u0) EMPTY_SIG)
-          (if (<= u13 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u798 u864)) u0) EMPTY_SIG)
-          (if (<= u14 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u864 u930)) u0) EMPTY_SIG)
-          (if (<= u15 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u930 u996)) u0) EMPTY_SIG)
-          (if (<= u16 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u996 u1062)) u0) EMPTY_SIG)
-          (if (<= u17 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u1062 u1128)) u0) EMPTY_SIG)
-          (if (<= u18 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u1128 u1194)) u0) EMPTY_SIG)
-          (if (<= u19 signatures-len)  (read-one-signature (unwrap-panic (slice? vaa-bytes u1194 u1260)) u0) EMPTY_SIG)
-        ) u0 signatures-len)))
-        ;; one signature = 66 bytes, total = 66 bytes * signatures-len
         (singnatures-offset (+ u6 (* signatures-len u66)))
+        ;; one signature = 66 bytes, total = 66 bytes * signatures-len
+        (signatures (map read-one-signature 
+          (unwrap-panic (slice? (list 
+            (default-to 0x (slice? vaa-bytes u6 u72))
+            (default-to 0x (slice? vaa-bytes u72 u138))
+            (default-to 0x (slice? vaa-bytes u138 u204))
+            (default-to 0x (slice? vaa-bytes u204 u270))
+            (default-to 0x (slice? vaa-bytes u270 u336))
+            (default-to 0x (slice? vaa-bytes u336 u402))
+            (default-to 0x (slice? vaa-bytes u402 u468))
+            (default-to 0x (slice? vaa-bytes u468 u534))
+            (default-to 0x (slice? vaa-bytes u534 u600))
+            (default-to 0x (slice? vaa-bytes u600 u666))
+            (default-to 0x (slice? vaa-bytes u666 u732))
+            (default-to 0x (slice? vaa-bytes u732 u798))
+            (default-to 0x (slice? vaa-bytes u798 u864))
+            (default-to 0x (slice? vaa-bytes u864 u930))
+            (default-to 0x (slice? vaa-bytes u930 u996))
+            (default-to 0x (slice? vaa-bytes u996 u1062))
+            (default-to 0x (slice? vaa-bytes u1062 u1128))
+            (default-to 0x (slice? vaa-bytes u1128 u1194))
+            (default-to 0x (slice? vaa-bytes u1194 u1260))) u0 signatures-len))
+        ))
         (vaa-body-hash (keccak256 (keccak256 (unwrap! (slice? vaa-bytes singnatures-offset vaa-bytes-len) ERR_VAA_HASHING_BODY))))
         (timestamp (unwrap! (read-uint-32? vaa-bytes singnatures-offset) ERR_VAA_PARSING_TIMESTAMP)) ;; offset +4
         (nonce (unwrap! (read-uint-32? vaa-bytes (+ singnatures-offset u4)) ERR_VAA_PARSING_NONCE)) ;; offset +4
@@ -335,11 +336,13 @@
           (unwrap-panic (as-max-len? (append (get value acc) { guardian-id: (get value cursor-guardian-id), signature: (get value cursor-signature) }) u19))
       })))
 
-(define-private (read-one-signature (input (buff 8192)) (offset uint))
+
+
+(define-private (read-one-signature (input (buff 8192)))
   {
-    guardian-id: (unwrap-panic (read-uint-8? input offset)),
-    signature: (unwrap-panic (read-buff-65? input (+ offset u1)))
-  }
+    guardian-id: (unwrap-panic (read-uint-8? input u0)),
+    signature: (unwrap-panic (read-buff-65? input u1))
+  } 
 )
 
 ;; @desc Convert an uncompressed public key (64 bytes) into a compressed public key (33 bytes)

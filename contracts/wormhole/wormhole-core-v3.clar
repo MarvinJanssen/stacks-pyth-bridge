@@ -106,7 +106,6 @@
 
 ;; Map tracking guardians set
 (define-map guardian-sets uint (list 19 { compressed-public-key: (buff 33), uncompressed-public-key: (buff 64) }))
-
 ;;;; Public functions
 
 ;; @desc Parse a Verified Action Approval (VAA)
@@ -128,58 +127,61 @@
 ;;
 ;; @param vaa-bytes: 
 (define-read-only (parse-vaa (vaa-bytes (buff 8192)))
-  (let ((cursor-version (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 { bytes: vaa-bytes, pos: u0 }) 
-          ERR_VAA_PARSING_VERSION))
-        (cursor-guardian-set-id (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-32 (get next cursor-version)) 
-          ERR_VAA_PARSING_GUARDIAN_SET))
-        (cursor-signatures-len (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 (get next cursor-guardian-set-id)) 
-          ERR_VAA_PARSING_SIGNATURES_LEN))
-        (cursor-signatures (fold batch-read-signatures
-          (list u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0 u0)
-          { 
-              next: (get next cursor-signatures-len), 
-              value: (list),
-              iter: (get value cursor-signatures-len)
-          }))
-        (vaa-body-hash (keccak256 (keccak256 (get value (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-8192-max (get next cursor-signatures) none)
-          ERR_VAA_HASHING_BODY)))))
-        (cursor-timestamp (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-32 (get next cursor-signatures)) 
-          ERR_VAA_PARSING_TIMESTAMP))
-        (cursor-nonce (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-32 (get next cursor-timestamp)) 
-          ERR_VAA_PARSING_NONCE))
-        (cursor-emitter-chain (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-16 (get next cursor-nonce)) 
-          ERR_VAA_PARSING_EMITTER_CHAIN))
-        (cursor-emitter-address (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-32 (get next cursor-emitter-chain)) 
-          ERR_VAA_PARSING_EMITTER_ADDRESS))
-        (cursor-sequence (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-64 (get next cursor-emitter-address)) 
-          ERR_VAA_PARSING_SEQUENCE))
-        (cursor-consistency-level (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 (get next cursor-sequence)) 
-          ERR_VAA_PARSING_CONSISTENCY_LEVEL))
-        (cursor-payload (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-8192-max (get next cursor-consistency-level) none)
-          ERR_VAA_PARSING_PAYLOAD))
-        (public-keys-results (fold batch-recover-public-keys
-          (get value cursor-signatures)
-          {
-              message-hash: vaa-body-hash,
-              value: (list)
-          })))
-    (asserts! (is-eq (get pos (get next cursor-payload)) (len vaa-bytes)) ERR_GSU_CHECK_OVERLAY)
-    (print { payload: (get value cursor-payload) })
+  (let ((vaa-bytes-len (len vaa-bytes))
+        (version (unwrap! (read-uint-8? vaa-bytes u0) ERR_VAA_PARSING_VERSION)) ;; offset +1
+        (guardian-set-id (unwrap! (read-uint-32? vaa-bytes u1) ERR_VAA_PARSING_GUARDIAN_SET)) ;; offset +4
+        (signatures-len (unwrap! (read-uint-8? vaa-bytes u5) ERR_VAA_PARSING_SIGNATURES_LEN)) ;; offset +1
+        (singnatures-offset (+ u6 (* signatures-len u66)))
+        ;; one signature = 66 bytes, total = 66 bytes * signatures-len
+        (signatures (map read-one-signature 
+          (unwrap-panic (slice? (list 
+            (default-to 0x (slice? vaa-bytes u6 u72))
+            (default-to 0x (slice? vaa-bytes u72 u138))
+            (default-to 0x (slice? vaa-bytes u138 u204))
+            (default-to 0x (slice? vaa-bytes u204 u270))
+            (default-to 0x (slice? vaa-bytes u270 u336))
+            (default-to 0x (slice? vaa-bytes u336 u402))
+            (default-to 0x (slice? vaa-bytes u402 u468))
+            (default-to 0x (slice? vaa-bytes u468 u534))
+            (default-to 0x (slice? vaa-bytes u534 u600))
+            (default-to 0x (slice? vaa-bytes u600 u666))
+            (default-to 0x (slice? vaa-bytes u666 u732))
+            (default-to 0x (slice? vaa-bytes u732 u798))
+            (default-to 0x (slice? vaa-bytes u798 u864))
+            (default-to 0x (slice? vaa-bytes u864 u930))
+            (default-to 0x (slice? vaa-bytes u930 u996))
+            (default-to 0x (slice? vaa-bytes u996 u1062))
+            (default-to 0x (slice? vaa-bytes u1062 u1128))
+            (default-to 0x (slice? vaa-bytes u1128 u1194))
+            (default-to 0x (slice? vaa-bytes u1194 u1260))) u0 signatures-len))
+        ))
+        (vaa-body-hash (keccak256 (keccak256 (unwrap! (slice? vaa-bytes singnatures-offset vaa-bytes-len) ERR_VAA_HASHING_BODY))))
+        (timestamp (unwrap! (read-uint-32? vaa-bytes singnatures-offset) ERR_VAA_PARSING_TIMESTAMP)) ;; offset +4
+        (nonce (unwrap! (read-uint-32? vaa-bytes (+ singnatures-offset u4)) ERR_VAA_PARSING_NONCE)) ;; offset +4
+        (emitter-chain (unwrap! (read-uint-16? vaa-bytes (+ singnatures-offset u8)) ERR_VAA_PARSING_EMITTER_CHAIN)) ;; offset +2
+        (emitter-address (unwrap! (read-buff-32? vaa-bytes (+ singnatures-offset u10)) ERR_VAA_PARSING_EMITTER_ADDRESS)) ;; offset +32
+        (sequence (unwrap! (read-uint-64? vaa-bytes (+ singnatures-offset u42)) ERR_VAA_PARSING_SEQUENCE)) ;; offset +8
+        (consistency-level (unwrap! (read-uint-8? vaa-bytes (+ singnatures-offset u50)) ERR_VAA_PARSING_CONSISTENCY_LEVEL)) ;; offset +1
+        (cursor-payload (unwrap! (slice? vaa-bytes (+ singnatures-offset u51) vaa-bytes-len) ERR_VAA_PARSING_PAYLOAD))
+        (public-keys-results (filter correct-key (map recover-public-key signatures (list vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
+          vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
+          vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash))))
+        )
     (ok { 
         vaa: {
-          version: (get value cursor-version), 
-          guardian-set-id: (get value cursor-guardian-set-id),
-          signatures-len: (get value cursor-signatures-len),
-          signatures: (get value cursor-signatures),
-          timestamp: (get value cursor-timestamp),
-          nonce: (get value cursor-nonce),
-          emitter-chain: (get value cursor-emitter-chain),
-          emitter-address: (get value cursor-emitter-address),
-          sequence: (get value cursor-sequence),
-          consistency-level: (get value cursor-consistency-level),
-          payload: (get value cursor-payload),
+          version: version, 
+          guardian-set-id: guardian-set-id,
+          signatures-len: signatures-len,
+          signatures: signatures,
+          timestamp: timestamp,
+          nonce: nonce,
+          emitter-chain: emitter-chain,
+          emitter-address: emitter-address,
+          sequence: sequence,
+          consistency-level: consistency-level,
+          payload: cursor-payload,
         },
-        recovered-public-keys: (get value public-keys-results),
+        recovered-public-keys: public-keys-results,
     })))
 
 ;; @desc Parse and check the validity of a Verified Action Approval (VAA)
@@ -283,18 +285,17 @@
       result: (unwrap-panic (as-max-len? (append (get result acc) entry) u19)),
     }))
 
-;; @desc Foldable function admitting an guardian input and their signature as an input, producing a record { recovered-compressed-public-key }
-(define-private (batch-recover-public-keys 
-      (entry { guardian-id: uint, signature: (buff 65) }) 
-      (acc { message-hash: (buff 32), value: (list 19 { recovered-compressed-public-key: (buff 33), guardian-id: uint }) }))
-  (let ((recovered-compressed-public-key (secp256k1-recover? (get message-hash acc) (get signature entry)))
-        (updated-public-keys (match recovered-compressed-public-key 
-            public-key (append (get value acc) { recovered-compressed-public-key: public-key, guardian-id: (get guardian-id entry) } )
-            error (get value acc))))
-    { 
-      message-hash: (get message-hash acc), 
-      value: (unwrap-panic (as-max-len? updated-public-keys u19)) 
-    }))
+(define-constant FAKE_PUB_KEY { recovered-compressed-public-key: 0x, guardian-id: u9999999 })
+(define-private (recover-public-key (sig { guardian-id: uint, signature: (buff 65) }) (message-hash (buff 32)))
+  (match (secp256k1-recover? message-hash (get signature sig)) 
+    public-key { recovered-compressed-public-key: public-key, guardian-id: (get guardian-id sig) }
+    err_ FAKE_PUB_KEY
+  )
+)
+
+(define-read-only (correct-key (input { recovered-compressed-public-key: (buff 33), guardian-id: uint }))
+  (< (get guardian-id input) u9999999)
+)
 
 ;; @desc Foldable function evaluating signatures from a list of { guardian-id: u8, signature: (buff 65) }, returning a list of recovered public-keys
 (define-private (batch-check-active-public-keys 
@@ -313,20 +314,31 @@
           }
           acc)))
 
+
+;; not needed
 ;; @desc Foldable function parsing a sequence of bytes into a list of { guardian-id: u8, signature: (buff 65) } 
 (define-private (batch-read-signatures 
       (entry uint) 
       (acc { next: { bytes: (buff 8192), pos: uint }, iter: uint, value: (list 19 { guardian-id: uint, signature: (buff 65) })}))
   (if (is-eq (get iter acc) u0)
     { iter: u0, next: (get next acc), value: (get value acc) }
-    (let ((cursor-guardian-id (unwrap-panic (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 (get next acc))))
-          (cursor-signature (unwrap-panic (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-65 (get next cursor-guardian-id)))))
+    (let ((cursor-guardian-id (unwrap-panic (read-uint-8 (get next acc))))
+          (cursor-signature (unwrap-panic (read-buff-65 (get next cursor-guardian-id)))))
       { 
         iter: (- (get iter acc) u1), 
         next: (get next cursor-signature), 
         value: 
           (unwrap-panic (as-max-len? (append (get value acc) { guardian-id: (get value cursor-guardian-id), signature: (get value cursor-signature) }) u19))
       })))
+
+
+
+(define-private (read-one-signature (input (buff 8192)))
+  {
+    guardian-id: (unwrap-panic (read-uint-8? input u0)),
+    signature: (unwrap-panic (read-buff-65? input u1))
+  } 
+)
 
 ;; @desc Convert an uncompressed public key (64 bytes) into a compressed public key (33 bytes)
 (define-private (compress-public-key (uncompressed-public-key (buff 64)))
@@ -341,7 +353,7 @@
 
 (define-private (parse-guardian (cue-position uint) (acc { bytes: (buff 8192), result: (list 19 (buff 20))}))
   (let (
-    (cursor-address-bytes (unwrap-panic (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-20 { bytes: (get bytes acc), pos: cue-position })))
+    (cursor-address-bytes (unwrap-panic (read-buff-20 { bytes: (get bytes acc), pos: cue-position })))
   )
   (if (is-none (index-of? (get result acc) (get value cursor-address-bytes)))
     {
@@ -354,17 +366,12 @@
 ;; @desc Parse and verify payload's VAA  
 (define-private (parse-and-verify-guardians-set (bytes (buff 8192)))
   (let 
-      ((cursor-module (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-32 { bytes: bytes, pos: u0 }) 
-          ERR_GSU_PARSING_MODULE))
-      (cursor-action (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 (get next cursor-module)) 
-          ERR_GSU_PARSING_ACTION))
-      (cursor-chain (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-16 (get next cursor-action)) 
-          ERR_GSU_PARSING_CHAIN))
-      (cursor-new-index (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-32 (get next cursor-chain)) 
-          ERR_GSU_PARSING_INDEX))
-      (cursor-guardians-count (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-uint-8 (get next cursor-new-index)) 
-          ERR_GSU_PARSING_GUARDIAN_LEN))
-      (guardians-bytes (unwrap! (contract-call? 'SP2J933XB2CP2JQ1A4FGN8JA968BBG3NK3EKZ7Q9F.hk-cursor-v2 read-buff-8192-max (get next cursor-guardians-count) (some (* (get value cursor-guardians-count) GUARDIAN_ETH_ADDRESS_SIZE))) 
+      ((cursor-module (unwrap! (read-buff-32 { bytes: bytes, pos: u0 }) ERR_GSU_PARSING_MODULE))
+      (cursor-action (unwrap! (read-uint-8 (get next cursor-module)) ERR_GSU_PARSING_ACTION))
+      (cursor-chain (unwrap! (read-uint-16 (get next cursor-action)) ERR_GSU_PARSING_CHAIN))
+      (cursor-new-index (unwrap! (read-uint-32 (get next cursor-chain)) ERR_GSU_PARSING_INDEX))
+      (cursor-guardians-count (unwrap! (read-uint-8 (get next cursor-new-index)) ERR_GSU_PARSING_GUARDIAN_LEN))
+      (guardians-bytes (unwrap! (read-buff-8192-max (get next cursor-guardians-count) (some (* (get value cursor-guardians-count) GUARDIAN_ETH_ADDRESS_SIZE))) 
           ERR_GSU_PARSING_GUARDIANS_BYTES))
       (guardians-cues (get result (fold is-guardian-cue (get value guardians-bytes) { cursor: u0, result: (list) })))
       (eth-addresses (get result (fold parse-guardian guardians-cues { bytes: (get value guardians-bytes), result: (list) }))))
@@ -450,4 +457,105 @@
       (latest-stacks-timestamp (unwrap! (get-stacks-block-info? time (- stacks-block-height u1)) ERR_STACKS_TIMESTAMP))
     ) (ok (and (is-eq prev-guardian-set-id set-id) (>= prev-guardian-set-expires-at latest-stacks-timestamp))))
   )
+)
+
+;; EXTRA
+
+(define-read-only (read-buff-8192-max (cursor { bytes: (buff 8192), pos: uint }) (size (optional uint)))
+    (let ((min (get pos cursor))
+          (max (match size value 
+            (+ value (get pos cursor))
+            (len (get bytes cursor)))))
+      (ok { 
+          value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) min max) (err u1)) u8192) (err u1)), 
+          next: { bytes: (get bytes cursor), pos: max }
+      })))
+
+(define-read-only (read-buff-32 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u32)) (err u1)) u32) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u32) }
+    }))
+
+
+(define-read-only (read-uint-8 (cursor { bytes: (buff 8192), pos: uint }))
+    (let ((cursor-bytes (try! (read-buff-1 cursor))))
+        (ok (merge cursor-bytes { value: (buff-to-uint-be (get value cursor-bytes)) }))))
+
+
+(define-read-only (read-uint-16 (cursor { bytes: (buff 8192), pos: uint }))
+    (let ((cursor-bytes (try! (read-buff-2 cursor))))
+        (ok (merge cursor-bytes { value: (buff-to-uint-be (get value cursor-bytes)) }))))
+
+(define-read-only (read-uint-32 (cursor { bytes: (buff 8192), pos: uint }))
+    (let ((cursor-bytes (try! (read-buff-4 cursor))))
+        (ok (merge cursor-bytes { value: (buff-to-uint-be (get value cursor-bytes)) }))))
+
+(define-read-only (read-uint-64 (cursor { bytes: (buff 8192), pos: uint }))
+    (let ((cursor-bytes (try! (read-buff-8 cursor))))
+        (ok (merge cursor-bytes { value: (buff-to-uint-be (get value cursor-bytes)) }))))
+
+
+(define-read-only (read-buff-1 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u1)) (err u1)) u1) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u1) }
+    }))
+
+(define-read-only (read-buff-2 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u2)) (err u1)) u2) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u2) }
+    }))
+
+(define-read-only (read-buff-8 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u8)) (err u1)) u8) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u8) }
+    }))
+
+(define-read-only (read-buff-4 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u4)) (err u1)) u4) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u4) }
+    }))
+
+(define-read-only (read-buff-20 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u20)) (err u1)) u20) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u20) }
+    }))
+
+(define-read-only (read-buff-65 (cursor { bytes: (buff 8192), pos: uint }))
+    (ok { 
+        value: (unwrap! (as-max-len? (unwrap! (slice? (get bytes cursor) (get pos cursor) (+ (get pos cursor) u65)) (err u1)) u65) (err u1)), 
+        next: { bytes: (get bytes cursor), pos: (+ (get pos cursor) u65) }
+    }))
+
+
+
+;; NEW
+
+(define-read-only (read-buff-32? (input (buff 8192)) (offset uint))
+  (ok (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u32)) (err u1)) u32)))
+)
+
+(define-read-only (read-buff-65? (input (buff 8192)) (offset uint))
+  (ok (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u65)) (err u1)) u65)))
+)
+
+(define-read-only (read-uint-8? (input (buff 8192)) (offset uint))
+  (ok (buff-to-uint-be (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u1)) (err u1)) u1))))
+)
+
+(define-read-only (read-uint-16? (input (buff 8192)) (offset uint))
+  (ok (buff-to-uint-be (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u2)) (err u1)) u2))))
+)
+
+(define-read-only (read-uint-32? (input (buff 8192)) (offset uint))
+  (ok (buff-to-uint-be (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u4)) (err u1)) u4))))
+)
+
+(define-read-only (read-uint-64? (input (buff 8192)) (offset uint))
+  (ok (buff-to-uint-be (unwrap-panic (as-max-len? (unwrap! (slice? input offset (+ offset u8)) (err u1)) u8))))
 )

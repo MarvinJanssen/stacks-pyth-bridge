@@ -165,12 +165,10 @@
         (sequence (unwrap! (read-uint-64? vaa-bytes (+ singnatures-offset u42)) ERR_VAA_PARSING_SEQUENCE)) ;; offset +8
         (consistency-level (unwrap! (read-uint-8? vaa-bytes (+ singnatures-offset u50)) ERR_VAA_PARSING_CONSISTENCY_LEVEL)) ;; offset +1
         (cursor-payload (unwrap! (slice? vaa-bytes (+ singnatures-offset u51) vaa-bytes-len) ERR_VAA_PARSING_PAYLOAD))
-        (public-keys-results (fold batch-recover-public-keys
-          signatures
-          {
-              message-hash: vaa-body-hash,
-              value: (list)
-          })))
+        (public-keys-results (filter correct-key (map test signatures (list vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
+          vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
+          vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash))))
+        )
     (ok { 
         vaa: {
           version: version, 
@@ -185,7 +183,7 @@
           consistency-level: consistency-level,
           payload: cursor-payload,
         },
-        recovered-public-keys: (get value public-keys-results),
+        recovered-public-keys: public-keys-results,
     })))
 
 ;; @desc Parse and check the validity of a Verified Action Approval (VAA)
@@ -289,18 +287,17 @@
       result: (unwrap-panic (as-max-len? (append (get result acc) entry) u19)),
     }))
 
-;; @desc Foldable function admitting an guardian input and their signature as an input, producing a record { recovered-compressed-public-key }
-(define-private (batch-recover-public-keys 
-      (entry { guardian-id: uint, signature: (buff 65) }) 
-      (acc { message-hash: (buff 32), value: (list 19 { recovered-compressed-public-key: (buff 33), guardian-id: uint }) }))
-  (let ((recovered-compressed-public-key (secp256k1-recover? (get message-hash acc) (get signature entry)))
-        (updated-public-keys (match recovered-compressed-public-key 
-            public-key (append (get value acc) { recovered-compressed-public-key: public-key, guardian-id: (get guardian-id entry) } )
-            error (get value acc))))
-    { 
-      message-hash: (get message-hash acc), 
-      value: (unwrap-panic (as-max-len? updated-public-keys u19)) 
-    }))
+(define-constant FAKE_PUB_KEY { recovered-compressed-public-key: 0x, guardian-id: u9999999 })
+(define-private (test (sig { guardian-id: uint, signature: (buff 65) }) (message-hash (buff 32)))
+  (match (secp256k1-recover? message-hash (get signature sig)) 
+    public-key { recovered-compressed-public-key: public-key, guardian-id: (get guardian-id sig) }
+    err_ FAKE_PUB_KEY
+  )
+)
+
+(define-read-only (correct-key (input { recovered-compressed-public-key: (buff 33), guardian-id: uint }))
+  (< (get guardian-id input) u9999999)
+)
 
 ;; @desc Foldable function evaluating signatures from a list of { guardian-id: u8, signature: (buff 65) }, returning a list of recovered public-keys
 (define-private (batch-check-active-public-keys 

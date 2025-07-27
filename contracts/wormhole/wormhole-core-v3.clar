@@ -106,8 +106,6 @@
 
 ;; Map tracking guardians set
 (define-map guardian-sets uint (list 19 { compressed-public-key: (buff 33), uncompressed-public-key: (buff 64) }))
-
-(define-constant EMPTY_SIG { guardian-id: u0, signature: 0x })
 ;;;; Public functions
 
 ;; @desc Parse a Verified Action Approval (VAA)

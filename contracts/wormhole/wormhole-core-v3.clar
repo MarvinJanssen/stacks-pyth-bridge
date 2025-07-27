@@ -165,7 +165,7 @@
         (sequence (unwrap! (read-uint-64? vaa-bytes (+ singnatures-offset u42)) ERR_VAA_PARSING_SEQUENCE)) ;; offset +8
         (consistency-level (unwrap! (read-uint-8? vaa-bytes (+ singnatures-offset u50)) ERR_VAA_PARSING_CONSISTENCY_LEVEL)) ;; offset +1
         (cursor-payload (unwrap! (slice? vaa-bytes (+ singnatures-offset u51) vaa-bytes-len) ERR_VAA_PARSING_PAYLOAD))
-        (public-keys-results (filter correct-key (map test signatures (list vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
+        (public-keys-results (filter correct-key (map recover-public-key signatures (list vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
           vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash 
           vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash vaa-body-hash))))
         )
@@ -288,7 +288,7 @@
     }))
 
 (define-constant FAKE_PUB_KEY { recovered-compressed-public-key: 0x, guardian-id: u9999999 })
-(define-private (test (sig { guardian-id: uint, signature: (buff 65) }) (message-hash (buff 32)))
+(define-private (recover-public-key (sig { guardian-id: uint, signature: (buff 65) }) (message-hash (buff 32)))
   (match (secp256k1-recover? message-hash (get signature sig)) 
     public-key { recovered-compressed-public-key: public-key, guardian-id: (get guardian-id sig) }
     err_ FAKE_PUB_KEY
